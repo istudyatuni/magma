@@ -20,14 +20,14 @@ class Magma {
     ullong mod32 = 0xffffffff;
     ulong keys[8];
     const int piBlock[8][16] = {
-        {12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1},
-        {6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15},
-        {11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0},
-        {12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11},
-        {7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12},
-        {5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0},
+        {1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2},
         {8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7},
-        {1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2}
+        {5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0},
+        {7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12},
+        {12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11},
+        {11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0},
+        {6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15},
+        {12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1},
     };
     void setKeys() {
         for (int i = 0; i < 4; ++i) {
@@ -50,12 +50,15 @@ class Magma {
         for (int i = 0; i < 8; ++i) {
             un[i] = piBlock[pi][un[i]];
         }
-        a = 0;
         for (int i = 0; i < 8; ++i) {
             a += un[i];
             a <<= 4;
         }
         a <<= 11;
+        //для циклического сдвига
+        ullong get11 = a & 0x7ff00000000;
+        get11 >>= 32;
+        a += get11;
         a &= mod32;
         return a;
     }
@@ -75,9 +78,18 @@ public:
             xkey[32 - i - 1] = keys[i];
         }
         //rounds
+        ullong old;
         for (int i = 0; i < 31; ++i) {
-            /* code */
+            old = right;//remember old right value
+            right = left ^ f(right, xkey[i], i);//xor
+            left = old;
+            cout  << hex << left << ' ' << right << endl;
         }
+        //last round, 32
+        left = left ^ f(right, xkey[31], 31);
+        cout << left << ' ' << right << endl;
+        data = left << 32;
+        data += right;
         return data;
     }
     int256 getKey() {
@@ -89,6 +101,6 @@ int main(){
     int256 key(0xffeeddccbbaa9988, 0x7766554433221100, 0xf0f1f2f3f4f5f6f7, 0xf8f9fafbfcfdfeff);
     Magma a(key);
     ullong message = a.encrypt(0xfedcba9876543210);
-    //cout << "data = " << hex << message;
+    cout << "data = " << hex << message;
     return 0;
 }//ru.wikipedia.org/wiki/ГОСТ_28147-89#Режим_простой_замены
