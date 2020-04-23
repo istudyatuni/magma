@@ -40,39 +40,42 @@ class Magma {
         }
     }
     ulong f(ullong a, ullong x, int pi) {
-        //cout << endl << pi << ": " << a << ' ' << x << ", ";
         a += x;
         a &= mod32;
         int un[8];
         for (int i = 0; i < 8; ++i){
             x = a & 0xf;//4 numbers
-            un[i] = x;
+            un[8 - i - 1] = x;
             a >>= 4;
         }
         for (int i = 0; i < 8; ++i) {
-            un[i] = piBlock[pi % 8][un[i]];
+            un[i] = piBlock[i][un[i]];
         }
         for (int i = 0; i < 8; ++i) {
             a += un[i];
             a <<= 4;
         }
+        a >>= 4;
         a = (a << 11) | (a >> 21);
         a &= mod32;
         return a;
     }
-    void round(ullong& data, ullong& left, ullong& right, const ulong *xkey) {
+    ullong round(ullong& left, ullong& right, const ulong *xkey) {
         ullong old;
+        cout << "start: " << left << ' ' << right << endl;
         for (int i = 0; i < 31; ++i) {
             old = right;//remember old right value
             right = left ^ f(right, xkey[i], i);//xor
             left = old;
-            //cout << left << ' ' << right << endl;
+            cout << left << ' ' << right << endl;
         }
         //last round, 32
+        cout << left << ' ' << right << endl;
         left = left ^ f(right, xkey[31], 31);
-        //cout << left << ' ' << right << endl;
-        data = left << 32;
-        data += right;
+        cout << left << ' ' << right << endl;
+        left <<= 32;
+        left += right;
+        return left;
     }
     void setXkey() {
         for (int i = 0; i < 24; ++i) {
@@ -91,18 +94,19 @@ public:
         ullong right = left & mod32;
         left >>= 32;
         setXkey();
-        round(data, left, right, xkey);
+        data = round(left, right, xkey);
         return data;
     }
     ullong decrypt(ullong data){
         ullong left = data;
         ullong right = left & mod32;
         left >>= 32;
+        //reverse xkey
         ulong* tmp = xkey;
         for (int i = 0; i < 32; ++i) {
             xkey[i] = tmp[32 - i - 1];
         }
-        round(data, left, right, xkey);
+        data = round(left, right, xkey);
         return data;
     }
     int256 getKey() {
@@ -116,7 +120,7 @@ int main(){
     Magma a(key);
     ullong text = 0xfedcba9876543210;
     ullong message = a.encrypt(text);
-    cout << "\nciphertext = " << message;
+    cout << "\nciphertext = " << message << endl;
     message = a.decrypt(message);
     cout << "\nmessage = " << message;
     cout << "\noriginal = " << text;
