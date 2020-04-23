@@ -60,19 +60,18 @@ class Magma {
         a &= mod32;
         return a;
     }
-    ullong round(ullong& left, ullong& right, const ulong *xkey) {
+    ullong round(ullong& left, ullong& right) {
         ullong old;
-        cout << "start: " << left << ' ' << right << endl;
+        //cout << "start: " << left << ' ' << right << endl;
         for (int i = 0; i < 31; ++i) {
             old = right;//remember old right value
             right = left ^ f(right, xkey[i], i);//xor
             left = old;
-            cout << left << ' ' << right << endl;
+            //cout << left << ' ' << right << endl;
         }
         //last round, 32
-        cout << left << ' ' << right << endl;
         left = left ^ f(right, xkey[31], 31);
-        cout << left << ' ' << right << endl;
+        //cout << left << ' ' << right << endl;
         left <<= 32;
         left += right;
         return left;
@@ -94,19 +93,23 @@ public:
         ullong right = left & mod32;
         left >>= 32;
         setXkey();
-        data = round(left, right, xkey);
+        data = round(left, right);
         return data;
     }
     ullong decrypt(ullong data){
         ullong left = data;
         ullong right = left & mod32;
         left >>= 32;
+        setXkey();
         //reverse xkey
         ulong* tmp = xkey;
         for (int i = 0; i < 32; ++i) {
             xkey[i] = tmp[32 - i - 1];
         }
-        data = round(left, right, xkey);
+        for (int i = 16; i < 24; ++i) {
+            xkey[i] = tmp[24 - i - 1];
+        }
+        data = round(left, right);
         return data;
     }
     int256 getKey() {
