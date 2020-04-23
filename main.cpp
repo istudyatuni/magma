@@ -19,6 +19,7 @@ class Magma {
     int256 key;
     ullong mod32 = 0xffffffff;
     ulong keys[8];
+    ulong xkey[32];
     const int piBlock[8][16] = {
         {1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2},
         {8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7},
@@ -39,6 +40,7 @@ class Magma {
         }
     }
     ulong f(ullong a, ullong x, int pi) {
+        //cout << endl << pi << ": " << a << ' ' << x << ", ";
         a += x;
         a &= mod32;
         int un[8];
@@ -48,19 +50,37 @@ class Magma {
             a >>= 4;
         }
         for (int i = 0; i < 8; ++i) {
-            un[i] = piBlock[pi][un[i]];
+            un[i] = piBlock[pi % 8][un[i]];
         }
         for (int i = 0; i < 8; ++i) {
             a += un[i];
             a <<= 4;
         }
-        a <<= 11;
-        //для циклического сдвига
-        ullong get11 = a & 0x7ff00000000;
-        get11 >>= 32;
-        a += get11;
+        a = (a << 11) | (a >> 21);
         a &= mod32;
         return a;
+    }
+    void round(ullong& data, ullong& left, ullong& right, const ulong *xkey) {
+        ullong old;
+        for (int i = 0; i < 31; ++i) {
+            old = right;//remember old right value
+            right = left ^ f(right, xkey[i], i);//xor
+            left = old;
+            //cout << left << ' ' << right << endl;
+        }
+        //last round, 32
+        left = left ^ f(right, xkey[31], 31);
+        //cout << left << ' ' << right << endl;
+        data = left << 32;
+        data += right;
+    }
+    void setXkey() {
+        for (int i = 0; i < 24; ++i) {
+            xkey[i] = keys[i % 8];
+        }
+        for (int i = 7; i >= 0; --i) {
+            xkey[32 - i - 1] = keys[i];
+        }
     }
 public:
     Magma(int256 key): key{key}{
@@ -70,26 +90,19 @@ public:
         ullong left = data;
         ullong right = left & mod32;
         left >>= 32;
-        ulong xkey[32];
-        for (int i = 0; i < 24; ++i) {
-            xkey[i] = keys[i % 8];
+        setXkey();
+        round(data, left, right, xkey);
+        return data;
+    }
+    ullong decrypt(ullong data){
+        ullong left = data;
+        ullong right = left & mod32;
+        left >>= 32;
+        ulong* tmp = xkey;
+        for (int i = 0; i < 32; ++i) {
+            xkey[i] = tmp[32 - i - 1];
         }
-        for (int i = 7; i >= 0; --i) {
-            xkey[32 - i - 1] = keys[i];
-        }
-        //rounds
-        ullong old;
-        for (int i = 0; i < 31; ++i) {
-            old = right;//remember old right value
-            right = left ^ f(right, xkey[i], i);//xor
-            left = old;
-            cout  << hex << left << ' ' << right << endl;
-        }
-        //last round, 32
-        left = left ^ f(right, xkey[31], 31);
-        cout << left << ' ' << right << endl;
-        data = left << 32;
-        data += right;
+        round(data, left, right, xkey);
         return data;
     }
     int256 getKey() {
@@ -98,9 +111,14 @@ public:
 };
 
 int main(){
+    cout << hex;
     int256 key(0xffeeddccbbaa9988, 0x7766554433221100, 0xf0f1f2f3f4f5f6f7, 0xf8f9fafbfcfdfeff);
     Magma a(key);
-    ullong message = a.encrypt(0xfedcba9876543210);
-    cout << "data = " << hex << message;
+    ullong text = 0xfedcba9876543210;
+    ullong message = a.encrypt(text);
+    cout << "\nciphertext = " << message;
+    message = a.decrypt(message);
+    cout << "\nmessage = " << message;
+    cout << "\noriginal = " << text;
     return 0;
 }//ru.wikipedia.org/wiki/ГОСТ_28147-89#Режим_простой_замены
