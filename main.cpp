@@ -102,12 +102,8 @@ public:
         left >>= 32;
         setXkey();
         //reverse xkey
-        ulong* tmp = xkey;
-        for (int i = 0; i < 32; ++i) {
-            xkey[i] = tmp[32 - i - 1];
-        }
-        for (int i = 16; i < 24; ++i) {
-            xkey[i] = tmp[24 - i - 1];
+        for (int i = 8; i < 16; ++i) {
+            std::swap(xkey[i], xkey[32 - i - 1]);
         }
         data = round(left, right);
         return data;
